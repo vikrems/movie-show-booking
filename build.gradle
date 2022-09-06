@@ -1,0 +1,44 @@
+plugins {
+    id 'org.springframework.boot' version '2.7.1'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'java'
+    id "io.freefair.lombok" version "5.2.1"
+}
+
+group = 'com.poc'
+version = '0.0.1-SNAPSHOT'
+
+ext {
+    awsDynamoDbVersion = '1.12.270'
+    apacheCommonsVersion = '3.12.0'
+}
+
+allprojects {
+    apply plugin: 'java'
+    apply plugin: 'io.freefair.lombok'
+
+    repositories {
+        mavenCentral()
+    }
+
+    group 'com.poc'
+    version '0.0.1-SNAPSHOT'
+
+    tasks.named('test') {
+        useJUnitPlatform()
+    }
+
+}
+
+subprojects {
+
+    dependencies {
+        implementation 'org.springframework.boot:spring-boot-autoconfigure'
+        implementation 'org.springframework.boot:spring-boot-starter'
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    }
+}
+
+bootJar {
+    mainClass = 'com.ticket.booking.BookingApplication'
+}
