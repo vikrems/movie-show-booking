@@ -47,18 +47,17 @@ public class ShowsService {
     }
 
     public void blockSeats(String userId, String showId, List<String> seats) {
-//        validateShowAndSeatExistence(userId, showId, seats);
+        validateShowAndSeatExistence(showId, seats);
         bookingRepository.block(userId, showId, seats);
     }
 
-    private void validateShowAndSeatExistence(String userId, String showId, List<String> seats) {
+    private void validateShowAndSeatExistence(String showId, List<String> seats) {
         List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId);
         validateShowExistence(showId, bookingEntities);
         Map<String, BookingEntity> idToEntity = bookingEntities.stream()
                 .collect(toMap(BookingEntity::getSortKey, Function.identity()));
         for (String eachSeat : seats) {
             validateSeatExistence(showId, idToEntity, eachSeat);
-            //validate if seat is blocked
         }
     }
 

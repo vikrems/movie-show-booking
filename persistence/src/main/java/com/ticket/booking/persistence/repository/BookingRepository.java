@@ -19,10 +19,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class BookingRepository {
 
     private final DynamoDBMapper dynamoDBMapper;
-    private final RedisTemplate<String, BlockedSeats> redisTemplate;
+    private final RedisTemplate<String, String> redisTemplate;
     private final Jackson2HashMapper redisMapper = new Jackson2HashMapper(false);
 
-    public BookingRepository(DynamoDBMapper dynamoDBMapper, RedisTemplate redisTemplate) {
+    public BookingRepository(DynamoDBMapper dynamoDBMapper, RedisTemplate<String, String> redisTemplate) {
         this.dynamoDBMapper = dynamoDBMapper;
         this.redisTemplate = redisTemplate;
     }
@@ -44,7 +44,7 @@ public class BookingRepository {
     }
 
     private BlockedSeats queryRedis(String showId) {
-        LinkedHashMap linkedHashMap = (LinkedHashMap) redisTemplate.opsForHash().entries(showId);
+        LinkedHashMap<String, Object> linkedHashMap = (LinkedHashMap) redisTemplate.opsForHash().entries(showId);
         if (linkedHashMap.isEmpty())
             return null;
 
