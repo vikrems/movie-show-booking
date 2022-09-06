@@ -2,6 +2,7 @@ package com.ticket.booking.api.service;
 
 import com.ticket.booking.api.dto.SeatAllocation;
 import com.ticket.booking.api.dto.SeatDto;
+import com.ticket.booking.api.exception.ConflictException;
 import com.ticket.booking.api.exception.ResourceNotFoundException;
 import com.ticket.booking.domain.entity.enums.Occupancy;
 import com.ticket.booking.persistence.entity.BookingEntity;
@@ -10,11 +11,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
+import static com.ticket.booking.domain.entity.enums.Occupancy.AVAILABLE;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
@@ -41,7 +44,7 @@ public class ShowsService {
                 .map(bookingEntity -> new SeatDto(bookingEntity.getSortKey(),
                         SeatDto.Category.valueOf(bookingEntity.getCategory()),
                         Occupancy.valueOf(bookingEntity.getOccupancy())))
-                .collect(Collectors.toList());
+                .collect(toList());
 
         return new SeatAllocation(seatDtos);
     }
@@ -56,17 +59,12 @@ public class ShowsService {
         validateShowExistence(showId, bookingEntities);
         Map<String, BookingEntity> idToEntity = bookingEntities.stream()
                 .collect(toMap(BookingEntity::getSortKey, Function.identity()));
+        List<String> unavailableSeats = new ArrayList<>();
         for (String eachSeat : seats) {
             validateSeatExistence(showId, idToEntity, eachSeat);
+            enlistUnavailableSeats(idToEntity, unavailableSeats, eachSeat);
         }
-    }
-
-    private void validateSeatExistence(String showId, Map<String, BookingEntity> idToEntity, String eachSeat) {
-        if (!idToEntity.containsKey(eachSeat)) {
-            String error = String.format("Seat %s not found in the show with ID %s", eachSeat, showId);
-            log.error(error);
-            throw new ResourceNotFoundException(error);
-        }
+        displayErrorForUnavailableSeats(unavailableSeats);
     }
 
     private void validateShowExistence(String showId, List<BookingEntity> bookingEntities) {
@@ -74,6 +72,30 @@ public class ShowsService {
             String error = String.format("Show Id %s not found", showId);
             log.error(error);
             throw new ResourceNotFoundException(error);
+        }
+    }
+
+    private void validateSeatExistence(String showId, Map<String, BookingEntity> idToEntity, String eachSeat) {
+        BookingEntity bookingEntity = idToEntity.get(eachSeat);
+        if (bookingEntity == null) {
+            String error = String.format("Seat %s not found in the show with ID %s", eachSeat, showId);
+            log.error(error);
+            throw new ResourceNotFoundException(error);
+        }
+    }
+
+    private void enlistUnavailableSeats(Map<String, BookingEntity> idToEntity, List<String> unavailableSeats,
+                                        String eachSeat) {
+        if (Occupancy.valueOf(idToEntity.get(eachSeat).getOccupancy()) != AVAILABLE)
+            unavailableSeats.add(eachSeat);
+    }
+
+    private void displayErrorForUnavailableSeats(List<String> unavailableSeats) {
+        if (!unavailableSeats.isEmpty()) {
+            String commaSeparatedSeats = String.join(",", unavailableSeats);
+            String error = String.format("The following seats %s are not available for this show", commaSeparatedSeats);
+            log.error(error);
+            throw new ConflictException(error);
         }
     }
 }
