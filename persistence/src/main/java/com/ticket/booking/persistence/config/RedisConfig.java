@@ -24,8 +24,10 @@ public class RedisConfig {
         template.setConnectionFactory(lettuceConnectionFactory());
         template.setEnableTransactionSupport(true);
         template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new StringRedisSerializer());
         template.setHashKeySerializer(new StringRedisSerializer());
         template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
+        template.setEnableTransactionSupport(true);
         return template;
     }
 
