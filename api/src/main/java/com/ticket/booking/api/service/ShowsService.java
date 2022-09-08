@@ -51,7 +51,8 @@ public class ShowsService {
 
     public void blockSeats(String userId, String showId, List<String> seats) {
         validateShowAndSeatExistence(showId, seats);
-        bookingRepository.block(userId, showId, seats);
+        if (!bookingRepository.block(userId, showId, seats))
+            throw new ConflictException("One or more seats are not available");
     }
 
     private void validateShowAndSeatExistence(String showId, List<String> seats) {
