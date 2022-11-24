@@ -2,8 +2,8 @@ package com.ticket.booking.api.service;
 
 import com.ticket.booking.api.dto.SeatAllocation;
 import com.ticket.booking.api.dto.SeatDto;
-import com.ticket.booking.api.exception.ConflictException;
-import com.ticket.booking.api.exception.ResourceNotFoundException;
+import com.ticket.booking.exception.ConflictException;
+import com.ticket.booking.exception.ResourceNotFoundException;
 import com.ticket.booking.domain.entity.enums.Occupancy;
 import com.ticket.booking.persistence.entity.BookingEntity;
 import com.ticket.booking.persistence.repository.BookingRepository;

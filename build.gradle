@@ -27,11 +27,9 @@ allprojects {
     tasks.named('test') {
         useJUnitPlatform()
     }
-
 }
 
 subprojects {
-
     dependencies {
         implementation 'org.springframework.boot:spring-boot-autoconfigure'
         implementation 'org.springframework.boot:spring-boot-starter'

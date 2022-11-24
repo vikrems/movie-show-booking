@@ -1,4 +1,4 @@
-package com.ticket.booking.api.exception;
+package com.ticket.booking.exception;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

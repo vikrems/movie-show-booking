@@ -2,4 +2,5 @@ rootProject.name = 'booking'
 include 'domain'
 include 'api'
 include 'persistence'
+include 'common'
 

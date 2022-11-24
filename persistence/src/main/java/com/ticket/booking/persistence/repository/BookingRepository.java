@@ -2,8 +2,9 @@ package com.ticket.booking.persistence.repository;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBQueryExpression;
-import com.ticket.booking.persistence.entity.BlockedSeats;
+import com.ticket.booking.exception.ConflictException;
 import com.ticket.booking.persistence.entity.BookingEntity;
+import com.ticket.booking.persistence.entity.SeatBooking;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
@@ -12,15 +13,16 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.hash.Jackson2HashMapper;
 import org.springframework.stereotype.Repository;
-import org.springframework.util.CollectionUtils;
 
 import java.time.Duration;
-import java.util.LinkedHashMap;
+import java.util.AbstractMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 import static com.ticket.booking.domain.entity.enums.Occupancy.BLOCKED;
+import static java.util.Objects.nonNull;
+import static java.util.stream.Collectors.toList;
+import static org.springframework.util.CollectionUtils.isEmpty;
 
 @Repository
 @Slf4j
@@ -39,9 +41,9 @@ public class BookingRepository {
 
     public List<BookingEntity> findByShowId(String showId) {
         List<BookingEntity> bookingEntities = queryDynamoDb(showId);
-        BlockedSeats blockedSeats = queryRedis(showId);
-        if (blockedSeats != null)
-            return mergeResults(blockedSeats.getSeats(), bookingEntities);
+        SeatBooking seatBooking = queryRedis(showId);
+        if (seatBooking != null)
+            return mergeResults(seatBooking.extractSeats(), bookingEntities);
 
         return bookingEntities;
     }
@@ -53,12 +55,12 @@ public class BookingRepository {
         return dynamoDBMapper.query(BookingEntity.class, dynamoDBQueryExpression);
     }
 
-    private BlockedSeats queryRedis(String showId) {
-        LinkedHashMap<String, Object> linkedHashMap = (LinkedHashMap) redisTemplate.opsForHash().entries(showId);
-        if (linkedHashMap.isEmpty())
+    private SeatBooking queryRedis(String showId) {
+        AbstractMap<String, Object> map = (AbstractMap) redisTemplate.opsForHash().entries(showId);
+        if (map.isEmpty())
             return null;
 
-        return (BlockedSeats) redisMapper.fromHash(linkedHashMap);
+        return (SeatBooking) redisMapper.fromHash(map);
     }
 
     private List<BookingEntity> mergeResults(List<String> listOfSeats, List<BookingEntity> bookingEntities) {
@@ -70,21 +72,28 @@ public class BookingRepository {
     }
 
     public boolean block(String userId, String showId, List<String> seatNumbers) {
-        BlockedSeats blockedSeats = new BlockedSeats(userId, seatNumbers);
         List<String> keys = seatNumbers.stream()
                 .map(eachSeat -> showId + "_" + eachSeat)
-                .collect(Collectors.toList());
+                .collect(toList());
 
         List<Object> txResults = redisTemplate.execute(new SessionCallback<>() {
             @SneakyThrows
             public List<Object> execute(RedisOperations operations) throws DataAccessException {
+                SeatBooking seatBooking = queryRedis(showId);
+                if (seatBooking == null)
+                    seatBooking = new SeatBooking();
+
+                seatBooking.addToBooking(userId, seatNumbers);
                 operations.watch(keys);
                 operations.multi();
                 for (String eachKey : keys) {
-                    operations.opsForValue().setIfAbsent(eachKey, "0", EXPIRATION);
+                    operations.opsForValue().setIfAbsent(eachKey, "0", EXPIRATION); //We insert this specifically to watch the keys to ensure that they are not modified
                     operations.opsForValue().increment(eachKey);
+                    String value = (String) operations.opsForValue().get(eachKey);
+                    if (nonNull(value))
+                        throw new ConflictException("One or more seats are not available");
                 }
-                operations.opsForHash().putAll(showId, redisMapper.toHash(blockedSeats));
+                operations.opsForHash().putAll(showId, redisMapper.toHash(seatBooking));
                 operations.expire(showId, EXPIRATION);
                 if (flag.compareAndSet(false, true)) {
                     System.out.println("Locking");
@@ -94,6 +103,6 @@ public class BookingRepository {
                 return operations.exec();
             }
         });
-        return !CollectionUtils.isEmpty(txResults);
+        return !isEmpty(txResults);
     }
 }

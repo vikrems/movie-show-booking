@@ -4,6 +4,7 @@ apply plugin: 'io.spring.dependency-management'
 dependencies {
     implementation project(":persistence")
     implementation project(":domain")
+    implementation project(":common")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
