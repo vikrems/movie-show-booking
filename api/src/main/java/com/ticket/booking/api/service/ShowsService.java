@@ -2,9 +2,9 @@ package com.ticket.booking.api.service;
 
 import com.ticket.booking.api.dto.SeatAllocation;
 import com.ticket.booking.api.dto.SeatDto;
+import com.ticket.booking.domain.entity.enums.Occupancy;
 import com.ticket.booking.exception.ConflictException;
 import com.ticket.booking.exception.ResourceNotFoundException;
-import com.ticket.booking.domain.entity.enums.Occupancy;
 import com.ticket.booking.persistence.entity.BookingEntity;
 import com.ticket.booking.persistence.repository.BookingRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static com.ticket.booking.domain.entity.enums.Occupancy.AVAILABLE;
+import static com.ticket.booking.domain.entity.enums.Occupancy.BLOCKED;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.springframework.util.CollectionUtils.isEmpty;
@@ -50,12 +51,12 @@ public class ShowsService {
     }
 
     public void blockSeats(String userId, String showId, List<String> seats) {
-        validateShowAndSeatExistence(showId, seats);
+        validateBlockedSeats(showId, seats);
         if (!bookingRepository.block(userId, showId, seats))
             throw new ConflictException("One or more seats are not available");
     }
 
-    private void validateShowAndSeatExistence(String showId, List<String> seats) {
+    private void validateBlockedSeats(String showId, List<String> seats) {
         List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId);
         validateShowExistence(showId, bookingEntities);
         Map<String, BookingEntity> idToEntity = bookingEntities.stream()
@@ -66,6 +67,25 @@ public class ShowsService {
             enlistUnavailableSeats(idToEntity, unavailableSeats, eachSeat);
         }
         displayErrorForUnavailableSeats(unavailableSeats);
+    }
+
+    public void unblockSeats(String userId, String showId, List<String> seats) {
+        List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId);
+        validateShowExistence(showId, bookingEntities);
+        Map<String, BookingEntity> idToEntity = bookingEntities.stream()
+                .collect(toMap(BookingEntity::getSortKey, Function.identity()));
+        List<String> filteredSeats = extractSeatsBlockedByTheUser(userId, seats, idToEntity);
+        bookingRepository.unblock(showId, filteredSeats);
+    }
+
+    private List<String> extractSeatsBlockedByTheUser(String userId, List<String> seats,
+                                                      Map<String, BookingEntity> idToEntity) {
+        return seats
+                .stream()
+                .filter(eachSeat -> idToEntity.get(eachSeat) != null)
+                .filter(eachSeat ->  Occupancy.valueOf(idToEntity.get(eachSeat).getOccupancy()) == BLOCKED)
+                .filter(eachSeat -> userId.equals(idToEntity.get(eachSeat).getUserId()))
+                .collect(toList());
     }
 
     private void validateShowExistence(String showId, List<BookingEntity> bookingEntities) {

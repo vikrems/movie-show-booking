@@ -31,8 +31,10 @@ public class ShowsController {
 
     @PutMapping("unblock")
     public ResponseEntity<Void> unblockSeats(@PathVariable("showId") String showId,
-                                             @RequestHeader String user,
+                                             @RequestHeader String userId,
                                              @RequestBody BookingAllocation allocation) {
-        return null;
+        showsService.unblockSeats(userId, showId, allocation.getSeats());
+        return ResponseEntity.noContent()
+                .build();
     }
 }

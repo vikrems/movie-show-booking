@@ -30,7 +30,7 @@ public class BookingRepository {
 
     private final DynamoDBMapper dynamoDBMapper;
     private final RedisTemplate<String, String> redisTemplate;
-    private static final Duration EXPIRATION = Duration.ofSeconds(30);
+    private static final Duration EXPIRATION = Duration.ofSeconds(300);
     private final Jackson2HashMapper redisMapper = new Jackson2HashMapper(false);
     private AtomicBoolean flag = new AtomicBoolean(false);
 
@@ -72,9 +72,7 @@ public class BookingRepository {
     }
 
     public boolean block(String userId, String showId, List<String> seatNumbers) {
-        List<String> keys = seatNumbers.stream()
-                .map(eachSeat -> showId + "_" + eachSeat)
-                .collect(toList());
+        List<String> keys = extractKeys(showId, seatNumbers);
 
         List<Object> txResults = redisTemplate.execute(new SessionCallback<>() {
             @SneakyThrows
@@ -95,14 +93,26 @@ public class BookingRepository {
                 }
                 operations.opsForHash().putAll(showId, redisMapper.toHash(seatBooking));
                 operations.expire(showId, EXPIRATION);
-                if (flag.compareAndSet(false, true)) {
-                    System.out.println("Locking");
-                    Thread.sleep(5000);
-                }
+//                if (flag.compareAndSet(false, true)) {
+//                    System.out.println("Locking");
+//                    Thread.sleep(5000);
+//                }
                 // This will contain the results of all operations in the transaction
                 return operations.exec();
             }
         });
         return !isEmpty(txResults);
+    }
+
+    private List<String> extractKeys(String showId, List<String> seatNumbers) {
+        return seatNumbers.stream()
+                .map(eachSeat -> showId + "_" + eachSeat)
+                .collect(toList());
+    }
+
+    public void unblock(String showId, List<String> seatNumbers) {
+        List<String> keys = extractKeys(showId, seatNumbers);
+        redisTemplate.delete(showId);
+        redisTemplate.delete(keys);
     }
 }
