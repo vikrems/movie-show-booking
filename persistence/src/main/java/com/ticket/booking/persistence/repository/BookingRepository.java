@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.ticket.booking.domain.entity.enums.Occupancy.BLOCKED;
+import static com.ticket.booking.domain.entity.enums.Occupancy.BOOKED;
 import static java.util.Objects.nonNull;
 import static java.util.stream.Collectors.toList;
 import static org.springframework.util.CollectionUtils.isEmpty;
@@ -39,11 +40,11 @@ public class BookingRepository {
         this.redisTemplate = redisTemplate;
     }
 
-    public List<BookingEntity> findByShowId(String showId) {
+    public List<BookingEntity> findByShowId(String showId, String userId) {
         List<BookingEntity> bookingEntities = queryDynamoDb(showId);
         SeatBooking seatBooking = queryRedis(showId);
         if (seatBooking != null)
-            return mergeResults(seatBooking.extractSeats(), bookingEntities);
+            return mergeResults(seatBooking.extractSeats(), bookingEntities, userId);
 
         return bookingEntities;
     }
@@ -63,10 +64,13 @@ public class BookingRepository {
         return (SeatBooking) redisMapper.fromHash(map);
     }
 
-    private List<BookingEntity> mergeResults(List<String> listOfSeats, List<BookingEntity> bookingEntities) {
+    private List<BookingEntity> mergeResults(List<String> listOfSeats, List<BookingEntity> bookingEntities,
+                                             String userId) {
         for (BookingEntity eachBookingEntity : bookingEntities) {
-            if (listOfSeats.contains(eachBookingEntity.getSortKey()))
+            if (listOfSeats.contains(eachBookingEntity.getSortKey())) {
                 eachBookingEntity.setOccupancy(BLOCKED.name());
+                eachBookingEntity.setUserId(userId);
+            }
         }
         return bookingEntities;
     }
@@ -114,5 +118,19 @@ public class BookingRepository {
         List<String> keys = extractKeys(showId, seatNumbers);
         redisTemplate.delete(showId);
         redisTemplate.delete(keys);
+    }
+
+    public void book(String userId, String showId, List<String> seats, List<BookingEntity> bookingEntities) {
+        unblock(showId, seats);
+        List<BookingEntity> updatedEntities = bookingEntities
+                .stream()
+                .filter(eachEntity -> seats.contains(eachEntity.getSortKey()))
+                .map(eachEntity -> {
+                    eachEntity.setUserId(userId);
+                    eachEntity.setOccupancy(BOOKED.name());
+                    return eachEntity;
+                })
+                .collect(toList());
+        dynamoDBMapper.batchSave(updatedEntities);
     }
 }
