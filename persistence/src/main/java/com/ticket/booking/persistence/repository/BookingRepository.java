@@ -3,7 +3,9 @@ package com.ticket.booking.persistence.repository;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBQueryExpression;
 import com.ticket.booking.domain.entity.Seat;
+import com.ticket.booking.domain.entity.state.Allocation;
 import com.ticket.booking.domain.entity.state.Blocked;
+import com.ticket.booking.domain.entity.state.Booked;
 import com.ticket.booking.exception.ConflictException;
 import com.ticket.booking.persistence.Mapper;
 import com.ticket.booking.persistence.entity.BookingEntity;
@@ -25,6 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.ticket.booking.domain.entity.enums.Occupancy.BLOCKED;
 import static com.ticket.booking.domain.entity.enums.Occupancy.BOOKED;
 import static java.util.Objects.nonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
@@ -83,7 +86,7 @@ public class BookingRepository {
     }
 
     public boolean block(String userId, String showId, List<String> seatNumbers) {
-        List<String> keys = extractKeys(showId, seatNumbers);
+        List<String> keys = extractRedisKeys(showId, seatNumbers);
 
         List<Object> txResults = redisTemplate.execute(new SessionCallback<>() {
             @SneakyThrows
@@ -115,14 +118,14 @@ public class BookingRepository {
         return !isEmpty(txResults);
     }
 
-    private List<String> extractKeys(String showId, List<String> seatNumbers) {
+    private List<String> extractRedisKeys(String showId, List<String> seatNumbers) {
         return seatNumbers.stream()
                 .map(eachSeat -> showId + "_" + eachSeat)
                 .collect(toList());
     }
 
     public void unblock(String showId, List<String> seatNumbers) {
-        List<String> keys = extractKeys(showId, seatNumbers);
+        List<String> keys = extractRedisKeys(showId, seatNumbers);
         redisTemplate.delete(showId);
         redisTemplate.delete(keys);
     }
@@ -141,12 +144,54 @@ public class BookingRepository {
         dynamoDBMapper.batchSave(updatedEntities);
     }
 
-    public void save(Blocked blockedAllocation) {
-        List<String> seatNumbers = blockedAllocation.getSeats()
+    public void save(Allocation allocation) {
+        if (allocation instanceof Blocked)
+            addToRedis((Blocked) allocation);
+        else if (allocation instanceof Booked)
+            dynamoDBMapper.save(allocation);
+        else
+            //unblock
+            ;
+    }
+
+    public boolean addToRedis(Blocked blockedAllocation) {
+        String showId = blockedAllocation.getShowId();
+        List<String> seatNumbers = extractSeatNumbers(blockedAllocation.getSeats());
+        List<String> keys = extractRedisKeys(showId, seatNumbers);
+
+        List<Object> txResults = redisTemplate.execute(new SessionCallback<>() {
+            @SneakyThrows
+            public List<Object> execute(RedisOperations operations) throws DataAccessException {
+                SeatBooking seatBooking = queryRedis(showId);
+                if (seatBooking == null)
+                    seatBooking = new SeatBooking();
+
+                seatBooking.addToBooking(blockedAllocation.getUserId(), seatNumbers);
+                operations.watch(keys);
+                operations.multi();
+                for (String eachKey : keys) {
+                    operations.opsForValue().setIfAbsent(eachKey, "0", EXPIRATION); //We insert this specifically to watch the keys to ensure that they are not modified
+                    operations.opsForValue().increment(eachKey);
+                    String value = (String) operations.opsForValue().get(eachKey);
+                    if (nonNull(value))
+                        throw new ConflictException("One or more seats are not available");
+                }
+                operations.opsForHash().putAll(showId, redisMapper.toHash(seatBooking));
+                String commaSeparatedKeys = keys.stream()
+                        .collect(joining(","));
+                operations.opsForValue().set(blockedAllocation.getAllocationId(), commaSeparatedKeys);
+                operations.expire(showId, EXPIRATION);
+                // This will contain the results of all operations in the transaction
+                return operations.exec();
+            }
+        });
+        return !isEmpty(txResults);
+    }
+
+    private List<String> extractSeatNumbers(List<Seat> seats) {
+        return seats
                 .stream()
                 .map(Seat::getSeatNumber)
                 .collect(toList());
-        block(blockedAllocation.getUserId(), blockedAllocation.getShowId(), seatNumbers);
-//        mapper.allocationToDynamoDbEntity(blockedAllocation);
     }
 }
