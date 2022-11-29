@@ -28,7 +28,7 @@ public class ShowsController {
                                            @RequestHeader String userId,
                                            @RequestBody BookingAllocation allocation) {
         log.debug("Request to block seats for show id = {}", showId);
-        showsService.blockSeats(userId, showId, allocation.getSeats());
+        showsService.domainBlockSeats(userId, showId, allocation.getSeats());
         return ResponseEntity.noContent()
                 .build();
     }

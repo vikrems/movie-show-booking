@@ -11,12 +11,5 @@ import lombok.NoArgsConstructor;
 public class SeatDto {
 
     private String number;
-    private Category category;
     private Occupancy occupancy;
-
-    public enum Category {
-        REGULAR,
-        BALCONY,
-        LOUNGE
-    }
 }

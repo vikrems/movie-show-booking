@@ -4,15 +4,14 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBRangeKey;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+
+import static lombok.AccessLevel.PRIVATE;
 
 @DynamoDBTable(tableName = "test_booking")
 @Getter
 @Setter
-@AllArgsConstructor
+@AllArgsConstructor(access = PRIVATE)
 @NoArgsConstructor
 public class BookingEntity {
 
@@ -22,10 +21,7 @@ public class BookingEntity {
     @DynamoDBRangeKey
     private String sortKey;
 
-    @DynamoDBAttribute
-    private String category;
-
-    @DynamoDBAttribute
+    @DynamoDBAttribute //TODO Change this to an enum
     private String occupancy;
 
     @DynamoDBAttribute
@@ -44,7 +40,12 @@ public class BookingEntity {
         return new BookingEntity(partitionKey);
     }
 
-    public static BookingEntity entityWithPartitionAndSortKey(String partitionKey, String sortKey){
+    public static BookingEntity entityWithPartitionAndSortKey(String partitionKey, String sortKey) {
         return new BookingEntity(partitionKey, sortKey);
+    }
+
+    public static BookingEntity entityWithPartitionKeySortKeyOccupancyUserId(String partitionKey, String sortKey,
+                                                                             String occupancy, String userId) {
+        return new BookingEntity(partitionKey, sortKey, occupancy, userId);
     }
 }

@@ -2,7 +2,10 @@ package com.ticket.booking.persistence.repository;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBQueryExpression;
+import com.ticket.booking.domain.entity.Seat;
+import com.ticket.booking.domain.entity.state.Blocked;
 import com.ticket.booking.exception.ConflictException;
+import com.ticket.booking.persistence.Mapper;
 import com.ticket.booking.persistence.entity.BookingEntity;
 import com.ticket.booking.persistence.entity.SeatBooking;
 import lombok.SneakyThrows;
@@ -31,15 +34,19 @@ public class BookingRepository {
 
     private final DynamoDBMapper dynamoDBMapper;
     private final RedisTemplate<String, String> redisTemplate;
+    private final Mapper mapper;
     private static final Duration EXPIRATION = Duration.ofSeconds(300);
     private final Jackson2HashMapper redisMapper = new Jackson2HashMapper(false);
     private AtomicBoolean flag = new AtomicBoolean(false);
 
-    public BookingRepository(DynamoDBMapper dynamoDBMapper, RedisTemplate<String, String> redisTemplate) {
+    public BookingRepository(DynamoDBMapper dynamoDBMapper, RedisTemplate<String, String> redisTemplate,
+                             Mapper mapper) {
         this.dynamoDBMapper = dynamoDBMapper;
         this.redisTemplate = redisTemplate;
+        this.mapper = mapper;
     }
 
+    //TODO Remove
     public List<BookingEntity> findByShowId(String showId, String userId) {
         List<BookingEntity> bookingEntities = queryDynamoDb(showId);
         SeatBooking seatBooking = queryRedis(showId);
@@ -132,5 +139,14 @@ public class BookingRepository {
                 })
                 .collect(toList());
         dynamoDBMapper.batchSave(updatedEntities);
+    }
+
+    public void save(Blocked blockedAllocation) {
+        List<String> seatNumbers = blockedAllocation.getSeats()
+                .stream()
+                .map(Seat::getSeatNumber)
+                .collect(toList());
+        block(blockedAllocation.getUserId(), blockedAllocation.getShowId(), seatNumbers);
+//        mapper.allocationToDynamoDbEntity(blockedAllocation);
     }
 }

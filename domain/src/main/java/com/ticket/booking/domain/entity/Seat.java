@@ -1,30 +1,18 @@
 package com.ticket.booking.domain.entity;
 
 import com.ticket.booking.domain.entity.enums.Occupancy;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-
-import static com.ticket.booking.domain.entity.enums.Occupancy.*;
+import lombok.Setter;
 
 @Getter
-@RequiredArgsConstructor
+@AllArgsConstructor
 public class Seat {
 
     private final String seatNumber;
-    private Occupancy occupancy = AVAILABLE;
 
-    void transition() {
-        if(occupancy == AVAILABLE)
-            occupancy = BLOCKED;
-        else if(occupancy == BLOCKED)
-            occupancy = BOOKED;
-    }
+    @Setter
+    private Occupancy occupancy;
 
-    void release() {
-        occupancy = AVAILABLE;
-    }
-
-    boolean isAvailable() {
-        return occupancy == AVAILABLE;
-    }
 }
