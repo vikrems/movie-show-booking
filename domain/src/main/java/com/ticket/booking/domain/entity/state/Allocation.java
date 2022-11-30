@@ -15,7 +15,7 @@ public abstract class Allocation {
     List<Seat> seats;
     String userId;
 
-    abstract Allocation forwardTransition();
+    public abstract Allocation forwardTransition(String userId);
 
-    abstract Allocation reverseTransition();
+    public abstract Allocation reverseTransition(String userId);
 }

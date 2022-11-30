@@ -23,9 +23,8 @@ public class ShowsController {
     }
 
     @GetMapping("show/{showId}")
-    public ResponseEntity<SeatAllocation> listSeats(@PathVariable("showId") String showId,
-                                                    @RequestHeader String userId) {
-        return ResponseEntity.ok(showsService.listAllSeats(showId, userId));
+    public ResponseEntity<SeatAllocation> listSeats(@PathVariable("showId") String showId) {
+        return ResponseEntity.ok(showsService.listAllSeats(showId));
     }
 
     @PutMapping("show/{showId}/block")
@@ -39,11 +38,10 @@ public class ShowsController {
                 .build();
     }
 
-    @PutMapping("show/{showId}/unblock")
-    public ResponseEntity<Void> unblockSeats(@PathVariable("showId") String showId,
-                                             @RequestHeader String userId,
-                                             @RequestBody Reservation reservation) {
-        showsService.unblockSeats(userId, showId, reservation.getSeats());
+    @PutMapping("allocation/{allocationId}/unblock")
+    public ResponseEntity<Void> unblockSeats(@PathVariable("allocationId") String allocationId,
+                                             @RequestHeader String userId) {
+        showsService.unblockSeats(allocationId, userId);
         return ResponseEntity.noContent()
                 .build();
     }

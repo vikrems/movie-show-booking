@@ -35,8 +35,8 @@ public class ShowsService {
 
     private final BookingRepository bookingRepository;
 
-    public SeatAllocation listAllSeats(String showId, String userId) {
-        List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId, userId);
+    public SeatAllocation listAllSeats(String showId) {
+        List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId);
         if (isEmpty(bookingEntities)) {
             log.error("Show ID {} is not available", showId);
             throw new ResourceNotFoundException("Requested Resource is not available");
@@ -55,15 +55,24 @@ public class ShowsService {
     }
 
     public String domainBlockSeats(String userId, String showId, List<String> requestedSeats) {
-        List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId, userId);
+        List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId);
         domainValidateShowAndSeatExistence(showId, requestedSeats, bookingEntities);
         List<Seat> seatVoList = convertToSeatVo(requestedSeats, bookingEntities);
         Blocked blockedAllocation = new Blocked(showId, seatVoList, userId);
         return bookingRepository.save(blockedAllocation);
     }
 
-    public void domainBookSeats(String userId, String showId, List<String> requestedSeats) {
+    public void unblockSeats(String allocationId, String userId) {
+        Allocation allocation = bookingRepository.findByAllocationId(allocationId)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND_MESSAGE));
+        Allocation reversedAllocation = allocation.reverseTransition(userId);
+        bookingRepository.save(reversedAllocation);
+    }
 
+    public void domainBookSeats(String allocationId, String userId) {
+        Allocation allocation = bookingRepository.findByAllocationId(allocationId)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND_MESSAGE));
+        allocation.forwardTransition(userId);
     }
 
 
@@ -91,13 +100,13 @@ public class ShowsService {
     }
 
     public void blockSeats(String userId, String showId, List<String> seats) {
-        validateBlockedSeats(showId, seats, userId);
+        validateBlockedSeats(showId, seats);
         if (!bookingRepository.block(userId, showId, seats))
             throw new ConflictException("One or more seats are not available");
     }
 
-    private void validateBlockedSeats(String showId, List<String> seats, String userId) {
-        List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId, userId);
+    private void validateBlockedSeats(String showId, List<String> seats) {
+        List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId);
         validateShowExistence(showId, bookingEntities);
         Map<String, BookingEntity> idToEntity = bookingEntities.stream()
                 .collect(toMap(BookingEntity::getSortKey, Function.identity()));
@@ -110,7 +119,7 @@ public class ShowsService {
     }
 
     public void book(String userId, String showId, List<String> seats) {
-        List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId, userId);
+        List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId);
         validateShowExistence(showId, bookingEntities);
         Map<String, BookingEntity> idToEntity = bookingEntities.stream()
                 .collect(toMap(BookingEntity::getSortKey, Function.identity()));
@@ -119,15 +128,6 @@ public class ShowsService {
             throw new ConflictException("The specified seats need to be blocked prior to booking");
 
         bookingRepository.book(userId, showId, seats, bookingEntities);
-    }
-
-    public void unblockSeats(String userId, String showId, List<String> seats) {
-        List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId, userId);
-        validateShowExistence(showId, bookingEntities);
-        Map<String, BookingEntity> idToEntity = bookingEntities.stream()
-                .collect(toMap(BookingEntity::getSortKey, Function.identity()));
-        List<String> filteredSeats = extractSeatsBlockedByTheUser(userId, seats, idToEntity);
-        bookingRepository.unblock(showId, filteredSeats);
     }
 
     private List<String> extractSeatsBlockedByTheUser(String userId, List<String> seats,

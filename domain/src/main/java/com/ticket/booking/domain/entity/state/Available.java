@@ -6,18 +6,18 @@ import java.util.List;
 
 public class Available extends Allocation {
 
-    public Available(String showId, String allocationId, List<Seat> seats) {
+    public Available(String allocationId, String showId, List<Seat> seats) {
         super(allocationId, showId, seats, null);
     }
 
     @Override
-    Allocation forwardTransition() {
+    public Allocation forwardTransition(String userId) {
 
         return null;
     }
 
     @Override
-    Allocation reverseTransition() {
+    public Allocation reverseTransition(String userId) {
         throw new IllegalStateException("Cannot reverseTransition from the 'Available' state");
     }
 }

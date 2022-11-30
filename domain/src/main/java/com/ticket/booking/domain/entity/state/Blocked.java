@@ -1,6 +1,8 @@
 package com.ticket.booking.domain.entity.state;
 
 import com.ticket.booking.domain.entity.Seat;
+import com.ticket.booking.domain.entity.enums.Occupancy;
+import com.ticket.booking.exception.AuthorizationException;
 import com.ticket.booking.exception.ConflictException;
 import lombok.extern.slf4j.Slf4j;
 
@@ -9,7 +11,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static com.ticket.booking.constant.Constant.NOT_AUTHORIZED_MESSAGE;
 import static com.ticket.booking.domain.entity.enums.Occupancy.*;
+import static org.springframework.http.HttpStatus.FORBIDDEN;
 
 @Slf4j
 public class Blocked extends Allocation {
@@ -46,18 +50,28 @@ public class Blocked extends Allocation {
     }
 
     @Override
-    Allocation forwardTransition() {
-        for (Seat eachSeat : seats)
-            eachSeat.setOccupancy(BOOKED);
+    public Allocation forwardTransition(String userId) {
+        authorizationCheck(userId);
+        changeSeatStatus(BOOKED);
 
         return new Booked(allocationId, showId, seats, userId);
     }
 
     @Override
-    Allocation reverseTransition() {
-        for (Seat eachSeat : seats)
-            eachSeat.setOccupancy(AVAILABLE);
+    public Allocation reverseTransition(String userId) {
+        authorizationCheck(userId);
+        changeSeatStatus(AVAILABLE);
 
         return new Available(allocationId, showId, seats);
+    }
+
+    private void changeSeatStatus(Occupancy available) {
+        for (Seat eachSeat : seats)
+            eachSeat.setOccupancy(available);
+    }
+
+    private void authorizationCheck(String userId) {
+        if (!this.userId.equals(userId))
+            throw new AuthorizationException(NOT_AUTHORIZED_MESSAGE, FORBIDDEN);
     }
 }

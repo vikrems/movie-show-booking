@@ -1,5 +1,6 @@
 package com.ticket.booking.api.exception;
 
+import com.ticket.booking.exception.AuthorizationException;
 import com.ticket.booking.exception.ConflictException;
 import com.ticket.booking.exception.ErrorResponse;
 import com.ticket.booking.exception.ResourceNotFoundException;
@@ -23,5 +24,11 @@ public class RestExceptionHandler {
     public ResponseEntity<ErrorResponse> handleConflictException(ConflictException ex) {
         ErrorResponse errorResponse = new ErrorResponse(ex.getMessage());
         return new ResponseEntity<>(errorResponse, CONFLICT);
+    }
+
+    @ExceptionHandler(AuthorizationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthorizationException(AuthorizationException ex) {
+        ErrorResponse errorResponse = new ErrorResponse(ex.getMessage());
+        return new ResponseEntity<>(errorResponse, ex.getHttpStatus());
     }
 }

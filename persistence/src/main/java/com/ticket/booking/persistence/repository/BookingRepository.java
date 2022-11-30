@@ -53,13 +53,45 @@ public class BookingRepository {
     }
 
     //TODO Remove
-    public List<BookingEntity> findByShowId(String showId, String userId) {
+    public List<BookingEntity> findByShowId(String showId) {
         List<BookingEntity> bookingEntities = queryDynamoDb(showId);
-        SeatBooking seatBooking = queryRedis(showId);
-        if (seatBooking != null)
-            return mergeResults(seatBooking.extractSeats(), bookingEntities, userId);
+        updateBlockedEntitiesFromRedis(bookingEntities);
 
         return bookingEntities;
+//        SeatBooking seatBooking = queryRedis(showId);
+//        if (seatBooking != null)
+//            return mergeResults(seatBooking.extractSeats(), bookingEntities, userId);
+//
+//        return bookingEntities;
+    }
+
+    private void updateBlockedEntitiesFromRedis(List<BookingEntity> bookingEntities) {
+        String keyPrefix = bookingEntities.get(0).getPartitionKey() + "_";
+        for (BookingEntity bookingEntity : bookingEntities) {
+            String userId = redisTemplate.opsForValue().get(keyPrefix + bookingEntity.getSortKey());
+            if (nonNull(userId))
+                bookingEntity.updateDetails(userId, BLOCKED.name());
+        }
+    }
+
+    public Optional<Allocation> findByAllocationId(String allocationId) {
+        String allocationValue = redisTemplate.opsForValue().get(allocationId);
+        if (isNull(allocationValue))
+            return Optional.empty();
+
+        String[] values = allocationValue.split(",");
+        int indexOfUserId = values.length - 1; //Last item stored is the userId
+        String userId = values[indexOfUserId];
+        List<Seat> seats = createSeatVo(values, indexOfUserId);
+        String showId = values[0].split("_")[0];
+        return Optional.of(new Blocked(allocationId, showId, seats, userId));
+    }
+
+    private List<Seat> createSeatVo(String[] values, int indexOfUserId) {
+        return IntStream.range(0, indexOfUserId)
+                .mapToObj(i -> values[i].split("_")[1])
+                .map(eachSeat -> new Seat(eachSeat, BLOCKED))
+                .collect(toList());
     }
 
     private List<BookingEntity> queryDynamoDb(String showId) {
@@ -127,14 +159,14 @@ public class BookingRepository {
                 .collect(toList());
     }
 
-    public void unblock(String showId, List<String> seatNumbers) {
+    public void unblock(String allocationId, String showId, List<String> seatNumbers) {
         List<String> keys = extractRedisKeys(showId, seatNumbers);
-        redisTemplate.delete(showId);
         redisTemplate.delete(keys);
+        redisTemplate.delete(allocationId);
     }
 
     public void book(String userId, String showId, List<String> seats, List<BookingEntity> bookingEntities) {
-        unblock(showId, seats);
+        unblock("", showId, seats);
         List<BookingEntity> updatedEntities = bookingEntities
                 .stream()
                 .filter(eachEntity -> seats.contains(eachEntity.getSortKey()))
@@ -152,9 +184,10 @@ public class BookingRepository {
             addToRedis((Blocked) allocation);
         else if (allocation instanceof Booked)
             dynamoDBMapper.save(allocation);
-        else
-            //unblock
-            ;
+        else {
+            List<String> seats = extractSeatNumbers(allocation.getSeats());
+            unblock(allocation.getAllocationId(), allocation.getShowId(), seats);
+        }
         return allocation.getAllocationId();
     }
 
@@ -180,7 +213,7 @@ public class BookingRepository {
                     if (nonNull(value))
                         throw new ConflictException("One or more seats are not available");
                 }
-                operations.opsForHash().putAll(showId, redisMapper.toHash(seatBooking));
+//                operations.opsForHash().putAll(showId, redisMapper.toHash(seatBooking));
                 keys.add(blockedAllocation.getUserId());
                 String commaSeparatedKeys = keys.stream()
                         .collect(joining(","));
@@ -198,26 +231,6 @@ public class BookingRepository {
         return seats
                 .stream()
                 .map(Seat::getSeatNumber)
-                .collect(toList());
-    }
-
-    public Optional<Allocation> findByAllocationId(String allocationId) {
-        String allocationValue = redisTemplate.opsForValue().get(allocationId);
-        if (isNull(allocationValue))
-            return Optional.empty();
-
-        String[] values = allocationValue.split(",");
-        int indexOfUserId = values.length - 1; //Last item stored is the userId
-        String userId = values[indexOfUserId];
-        List<Seat> seats = createSeatVo(values, indexOfUserId);
-        String showId = values[0].split("_")[0];
-        return Optional.of(new Blocked(allocationId, showId, seats, userId));
-    }
-
-    private List<Seat> createSeatVo(String[] values, int indexOfUserId) {
-        return IntStream.range(0, indexOfUserId)
-                .mapToObj(i -> values[i].split("_")[1])
-                .map(eachSeat -> new Seat(eachSeat, BLOCKED))
                 .collect(toList());
     }
 }

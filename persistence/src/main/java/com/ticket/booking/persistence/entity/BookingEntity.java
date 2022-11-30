@@ -4,8 +4,13 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBRangeKey;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
-import lombok.*;
+import com.ticket.booking.domain.entity.enums.Occupancy;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+import static com.ticket.booking.domain.entity.enums.Occupancy.BLOCKED;
 import static lombok.AccessLevel.PRIVATE;
 
 @DynamoDBTable(tableName = "test_booking")
@@ -47,5 +52,10 @@ public class BookingEntity {
     public static BookingEntity entityWithPartitionKeySortKeyOccupancyUserId(String partitionKey, String sortKey,
                                                                              String occupancy, String userId) {
         return new BookingEntity(partitionKey, sortKey, occupancy, userId);
+    }
+
+    public void updateDetails(String userId, String occupancy) {
+        this.userId = userId;
+        this.occupancy = occupancy;
     }
 }
