@@ -39,7 +39,7 @@ public class ShowsService {
         List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId);
         if (isEmpty(bookingEntities)) {
             log.error("Show ID {} is not available", showId);
-            throw new ResourceNotFoundException("Requested Resource is not available");
+            throw new ResourceNotFoundException();
         }
         return convertToSeatAllocation(bookingEntities);
     }
@@ -56,7 +56,7 @@ public class ShowsService {
 
     public String blockSeats(String userId, String showId, List<String> requestedSeats) {
         List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId);
-        domainValidateShowAndSeatExistence(showId, requestedSeats, bookingEntities);
+        validateShowAndSeatExistence(showId, requestedSeats, bookingEntities);
         List<Seat> seatVoList = convertToSeatVo(requestedSeats, bookingEntities);
         Blocked blockedAllocation = new Blocked(showId, seatVoList, userId);
         return bookingRepository.save(blockedAllocation);
@@ -64,14 +64,14 @@ public class ShowsService {
 
     public void unblockSeats(String allocationId, String userId) {
         Allocation allocation = bookingRepository.findByAllocationId(allocationId)
-                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND_MESSAGE));
+                .orElseThrow(ResourceNotFoundException::new);
         Allocation reversedAllocation = allocation.reverseTransition(userId);
         bookingRepository.save(reversedAllocation);
     }
 
     public void domainBookSeats(String allocationId, String userId) {
         Allocation allocation = bookingRepository.findByAllocationId(allocationId)
-                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND_MESSAGE));
+                .orElseThrow(ResourceNotFoundException::new);
         allocation.forwardTransition(userId);
     }
 
@@ -86,8 +86,8 @@ public class ShowsService {
                 .collect(Collectors.toList());
     }
 
-    private void domainValidateShowAndSeatExistence(String showId, List<String> requestedSeats,
-                                                    List<BookingEntity> bookingEntities) {
+    private void validateShowAndSeatExistence(String showId, List<String> requestedSeats,
+                                              List<BookingEntity> bookingEntities) {
         validateShowExistence(showId, bookingEntities);
         Map<String, BookingEntity> idToEntity = bookingEntities.stream()
                 .collect(toMap(BookingEntity::getSortKey, Function.identity()));
@@ -103,7 +103,7 @@ public class ShowsService {
         if (isEmpty(bookingEntities)) {
             String error = String.format("Show Id %s not found", showId);
             log.error(error);
-            throw new ResourceNotFoundException(error);
+            throw new ResourceNotFoundException();
         }
     }
 
@@ -112,7 +112,7 @@ public class ShowsService {
         if (isNull(bookingEntity)) {
             String error = String.format("Seat %s not found in the show with ID %s", eachSeat, showId);
             log.error(error);
-            throw new ResourceNotFoundException(error);
+            throw new ResourceNotFoundException();
         }
     }
 
@@ -133,7 +133,7 @@ public class ShowsService {
 
     public UserBasedAllocation getUserBasedAllocation(String allocationId) {
         Allocation allocation = bookingRepository.findByAllocationId(allocationId)
-                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND_MESSAGE));
+                .orElseThrow(ResourceNotFoundException::new);
         Occupancy occupancy = findOccupancyBasedOnAllocation(allocation);
         List<String> seats = allocation.getSeats().stream()
                 .map(Seat::getSeatNumber)
