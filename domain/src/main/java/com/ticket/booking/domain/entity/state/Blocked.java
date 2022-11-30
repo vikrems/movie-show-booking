@@ -24,6 +24,10 @@ public class Blocked extends Allocation {
         displayErrorForUnavailableSeats(unavailableSeats);
     }
 
+    public Blocked(String allocationId, String showId, List<Seat> seats, String userId) {
+        super(allocationId, showId, seats, userId);
+    }
+
     private void enlistSeatsIfUnavailable(List<Seat> unavailableSeats, Seat eachSeat) {
         if (eachSeat.getOccupancy() != AVAILABLE)
             unavailableSeats.add(eachSeat);

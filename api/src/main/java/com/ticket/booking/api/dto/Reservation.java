@@ -5,7 +5,7 @@ import lombok.Getter;
 import java.util.List;
 
 @Getter
-public class BookingAllocation {
+public class Reservation {
 
     private List<String> seats;
 }

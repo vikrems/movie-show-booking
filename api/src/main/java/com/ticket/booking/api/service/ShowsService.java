@@ -2,10 +2,11 @@ package com.ticket.booking.api.service;
 
 import com.ticket.booking.api.dto.SeatAllocation;
 import com.ticket.booking.api.dto.SeatDto;
+import com.ticket.booking.api.dto.UserBasedAllocation;
 import com.ticket.booking.domain.entity.Seat;
 import com.ticket.booking.domain.entity.enums.Occupancy;
+import com.ticket.booking.domain.entity.state.Allocation;
 import com.ticket.booking.domain.entity.state.Blocked;
-import com.ticket.booking.domain.entity.state.Booked;
 import com.ticket.booking.exception.ConflictException;
 import com.ticket.booking.exception.ResourceNotFoundException;
 import com.ticket.booking.persistence.entity.BookingEntity;
@@ -20,8 +21,8 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.ticket.booking.domain.entity.enums.Occupancy.AVAILABLE;
-import static com.ticket.booking.domain.entity.enums.Occupancy.BLOCKED;
+import static com.ticket.booking.constant.Constant.NOT_FOUND_MESSAGE;
+import static com.ticket.booking.domain.entity.enums.Occupancy.*;
 import static java.util.Objects.isNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -34,7 +35,7 @@ public class ShowsService {
 
     private final BookingRepository bookingRepository;
 
-    public SeatAllocation getSeatAllocation(String showId, String userId) {
+    public SeatAllocation listAllSeats(String showId, String userId) {
         List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId, userId);
         if (isEmpty(bookingEntities)) {
             log.error("Show ID {} is not available", showId);
@@ -53,12 +54,12 @@ public class ShowsService {
         return new SeatAllocation(seatDtos);
     }
 
-    public void domainBlockSeats(String userId, String showId, List<String> requestedSeats) {
+    public String domainBlockSeats(String userId, String showId, List<String> requestedSeats) {
         List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId, userId);
         domainValidateShowAndSeatExistence(showId, requestedSeats, bookingEntities);
         List<Seat> seatVoList = convertToSeatVo(requestedSeats, bookingEntities);
         Blocked blockedAllocation = new Blocked(showId, seatVoList, userId);
-        bookingRepository.save(blockedAllocation);
+        return bookingRepository.save(blockedAllocation);
     }
 
     public void domainBookSeats(String userId, String showId, List<String> requestedSeats) {
@@ -169,5 +170,23 @@ public class ShowsService {
             log.error(error);
             throw new ConflictException(error);
         }
+    }
+
+    public UserBasedAllocation getUserBasedAllocation(String allocationId) {
+        Allocation allocation = bookingRepository.findByAllocationId(allocationId)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND_MESSAGE));
+        Occupancy occupancy = findOccupancyBasedOnAllocation(allocation);
+        List<String> seats = allocation.getSeats().stream()
+                .map(Seat::getSeatNumber)
+                .collect(toList());
+        return new UserBasedAllocation(allocation.getUserId(), occupancy, seats);
+
+    }
+
+    private Occupancy findOccupancyBasedOnAllocation(Allocation allocation) {
+        if (allocation instanceof Blocked)
+            return BLOCKED;
+
+        return BOOKED;
     }
 }

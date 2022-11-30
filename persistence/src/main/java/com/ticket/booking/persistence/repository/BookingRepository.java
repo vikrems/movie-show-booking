@@ -22,10 +22,13 @@ import org.springframework.stereotype.Repository;
 import java.time.Duration;
 import java.util.AbstractMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.IntStream;
 
 import static com.ticket.booking.domain.entity.enums.Occupancy.BLOCKED;
 import static com.ticket.booking.domain.entity.enums.Occupancy.BOOKED;
+import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -144,7 +147,7 @@ public class BookingRepository {
         dynamoDBMapper.batchSave(updatedEntities);
     }
 
-    public void save(Allocation allocation) {
+    public String save(Allocation allocation) {
         if (allocation instanceof Blocked)
             addToRedis((Blocked) allocation);
         else if (allocation instanceof Booked)
@@ -152,6 +155,7 @@ public class BookingRepository {
         else
             //unblock
             ;
+        return allocation.getAllocationId();
     }
 
     public boolean addToRedis(Blocked blockedAllocation) {
@@ -177,9 +181,11 @@ public class BookingRepository {
                         throw new ConflictException("One or more seats are not available");
                 }
                 operations.opsForHash().putAll(showId, redisMapper.toHash(seatBooking));
+                keys.add(blockedAllocation.getUserId());
                 String commaSeparatedKeys = keys.stream()
                         .collect(joining(","));
                 operations.opsForValue().set(blockedAllocation.getAllocationId(), commaSeparatedKeys);
+                operations.expire(blockedAllocation.getAllocationId(), EXPIRATION);
                 operations.expire(showId, EXPIRATION);
                 // This will contain the results of all operations in the transaction
                 return operations.exec();
@@ -192,6 +198,26 @@ public class BookingRepository {
         return seats
                 .stream()
                 .map(Seat::getSeatNumber)
+                .collect(toList());
+    }
+
+    public Optional<Allocation> findByAllocationId(String allocationId) {
+        String allocationValue = redisTemplate.opsForValue().get(allocationId);
+        if (isNull(allocationValue))
+            return Optional.empty();
+
+        String[] values = allocationValue.split(",");
+        int indexOfUserId = values.length - 1; //Last item stored is the userId
+        String userId = values[indexOfUserId];
+        List<Seat> seats = createSeatVo(values, indexOfUserId);
+        String showId = values[0].split("_")[0];
+        return Optional.of(new Blocked(allocationId, showId, seats, userId));
+    }
+
+    private List<Seat> createSeatVo(String[] values, int indexOfUserId) {
+        return IntStream.range(0, indexOfUserId)
+                .mapToObj(i -> values[i].split("_")[1])
+                .map(eachSeat -> new Seat(eachSeat, BLOCKED))
                 .collect(toList());
     }
 }
