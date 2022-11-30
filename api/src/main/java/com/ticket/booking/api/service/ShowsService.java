@@ -54,7 +54,7 @@ public class ShowsService {
         return new SeatAllocation(seatDtos);
     }
 
-    public String domainBlockSeats(String userId, String showId, List<String> requestedSeats) {
+    public String blockSeats(String userId, String showId, List<String> requestedSeats) {
         List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId);
         domainValidateShowAndSeatExistence(showId, requestedSeats, bookingEntities);
         List<Seat> seatVoList = convertToSeatVo(requestedSeats, bookingEntities);
@@ -97,47 +97,6 @@ public class ShowsService {
             enlistUnavailableSeats(idToEntity, unavailableSeats, eachSeat);
         }
         displayErrorForUnavailableSeats(unavailableSeats);
-    }
-
-    public void blockSeats(String userId, String showId, List<String> seats) {
-        validateBlockedSeats(showId, seats);
-        if (!bookingRepository.block(userId, showId, seats))
-            throw new ConflictException("One or more seats are not available");
-    }
-
-    private void validateBlockedSeats(String showId, List<String> seats) {
-        List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId);
-        validateShowExistence(showId, bookingEntities);
-        Map<String, BookingEntity> idToEntity = bookingEntities.stream()
-                .collect(toMap(BookingEntity::getSortKey, Function.identity()));
-        List<String> unavailableSeats = new ArrayList<>();
-        for (String eachSeat : seats) {
-            validateSeatExistence(showId, idToEntity, eachSeat);
-            enlistUnavailableSeats(idToEntity, unavailableSeats, eachSeat);
-        }
-        displayErrorForUnavailableSeats(unavailableSeats);
-    }
-
-    public void book(String userId, String showId, List<String> seats) {
-        List<BookingEntity> bookingEntities = bookingRepository.findByShowId(showId);
-        validateShowExistence(showId, bookingEntities);
-        Map<String, BookingEntity> idToEntity = bookingEntities.stream()
-                .collect(toMap(BookingEntity::getSortKey, Function.identity()));
-        List<String> filteredSeats = extractSeatsBlockedByTheUser(userId, seats, idToEntity);
-        if (filteredSeats.size() < seats.size())
-            throw new ConflictException("The specified seats need to be blocked prior to booking");
-
-        bookingRepository.book(userId, showId, seats, bookingEntities);
-    }
-
-    private List<String> extractSeatsBlockedByTheUser(String userId, List<String> seats,
-                                                      Map<String, BookingEntity> idToEntity) {
-        return seats
-                .stream()
-                .filter(eachSeat -> idToEntity.get(eachSeat) != null)
-                .filter(eachSeat -> Occupancy.valueOf(idToEntity.get(eachSeat).getOccupancy()) == BLOCKED)
-                .filter(eachSeat -> userId.equals(idToEntity.get(eachSeat).getUserId()))
-                .collect(toList());
     }
 
     private void validateShowExistence(String showId, List<BookingEntity> bookingEntities) {

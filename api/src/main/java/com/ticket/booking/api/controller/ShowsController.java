@@ -32,7 +32,7 @@ public class ShowsController {
                                            @RequestHeader String userId,
                                            @RequestBody Reservation reservation) {
         log.debug("Request to block seats for show id = {}", showId);
-        String allocationId = showsService.domainBlockSeats(userId, showId, reservation.getSeats());
+        String allocationId = showsService.blockSeats(userId, showId, reservation.getSeats());
         return ResponseEntity.noContent()
                 .header("allocationId", allocationId)
                 .build();
@@ -47,13 +47,13 @@ public class ShowsController {
     }
 
 
-    @PutMapping("show/{showId}/book")
-    public ResponseEntity<Void> book(@PathVariable("showId") String showId,
-                                     @RequestHeader String userId,
-                                     @RequestBody Reservation reservation) {
-        log.debug("Request to book seats for show id = {}", showId);
-        showsService.book(userId, showId, reservation.getSeats());
-        return ResponseEntity.noContent()
-                .build();
-    }
+//    @PutMapping("show/{showId}/book")
+//    public ResponseEntity<Void> book(@PathVariable("showId") String showId,
+//                                     @RequestHeader String userId,
+//                                     @RequestBody Reservation reservation) {
+//        log.debug("Request to book seats for show id = {}", showId);
+//        showsService.domainBookSeats(userId, showId, reservation.getSeats());
+//        return ResponseEntity.noContent()
+//                .build();
+//    }
 }
