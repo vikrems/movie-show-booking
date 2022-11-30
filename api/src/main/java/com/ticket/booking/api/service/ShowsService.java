@@ -21,16 +21,15 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.ticket.booking.constant.Constant.NOT_FOUND_MESSAGE;
 import static com.ticket.booking.domain.entity.enums.Occupancy.*;
 import static java.util.Objects.isNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ShowsService {
 
     private final BookingRepository bookingRepository;
