@@ -12,8 +12,7 @@ public class Available extends Allocation {
 
     @Override
     public Allocation forwardTransition(String userId) {
-
-        return null;
+        throw new IllegalStateException("Cannot forwardTransition from the 'Available' state");
     }
 
     @Override
