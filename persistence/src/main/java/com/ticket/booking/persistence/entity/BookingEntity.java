@@ -1,14 +1,13 @@
 package com.ticket.booking.persistence.entity;
 
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBRangeKey;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
+import com.amazonaws.services.dynamodbv2.datamodeling.*;
 import com.ticket.booking.domain.entity.enums.Occupancy;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.List;
 
 import static com.ticket.booking.domain.entity.enums.Occupancy.BLOCKED;
 import static lombok.AccessLevel.PRIVATE;
@@ -27,10 +26,14 @@ public class BookingEntity {
     private String sortKey;
 
     @DynamoDBAttribute //TODO Change this to an enum
-    private String occupancy;
+    @DynamoDBTypeConvertedEnum
+    private Occupancy occupancy;
 
     @DynamoDBAttribute
     private String userId;
+
+    @DynamoDBAttribute
+    private List<String> allocatedSeats;
 
     private BookingEntity(String partitionKey) {
         this.partitionKey = partitionKey;
@@ -39,6 +42,13 @@ public class BookingEntity {
     private BookingEntity(String partitionKey, String sortKey) {
         this.partitionKey = partitionKey;
         this.sortKey = sortKey;
+    }
+
+    private BookingEntity(String partitionKey, String sortKey, Occupancy occupancy, String userId) {
+        this.partitionKey = partitionKey;
+        this.sortKey = sortKey;
+        this.occupancy = occupancy;
+        this.userId = userId;
     }
 
     public static BookingEntity entityWithPartitionKey(String partitionKey) {
@@ -50,11 +60,16 @@ public class BookingEntity {
     }
 
     public static BookingEntity entityWithPartitionKeySortKeyOccupancyUserId(String partitionKey, String sortKey,
-                                                                             String occupancy, String userId) {
+                                                                             Occupancy occupancy, String userId) {
         return new BookingEntity(partitionKey, sortKey, occupancy, userId);
     }
 
-    public void updateDetails(String userId, String occupancy) {
+    public static BookingEntity entityWithAllocationIdOccupancyUserIdAllocatedSeats(String allocationId,
+                                                                                    Occupancy occupancy, String userId,
+                                                                                    List<String> allocatedSeats){
+        return new BookingEntity(allocationId, allocationId, occupancy, userId, allocatedSeats);
+    }
+    public void updateDetails(String userId, Occupancy occupancy) {
         this.userId = userId;
         this.occupancy = occupancy;
     }

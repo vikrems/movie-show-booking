@@ -3,30 +3,21 @@ package com.ticket.booking.persistence.repository;
 import com.ticket.booking.domain.entity.state.Allocation;
 import com.ticket.booking.domain.entity.state.Blocked;
 import com.ticket.booking.domain.entity.state.Booked;
-import com.ticket.booking.persistence.Mapper;
 import com.ticket.booking.persistence.entity.BookingEntity;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-@Repository
 @Slf4j
+@Repository
+@RequiredArgsConstructor
 public class BookingRepository {
 
     private final DynamoDBRepository dynamoDBRepository;
     private final RedisRepository redisRepository;
-    private final Mapper mapper;
-    private AtomicBoolean flag = new AtomicBoolean(false);
-
-    public BookingRepository(DynamoDBRepository dynamoDBRepository, RedisRepository redisRepository,
-                             Mapper mapper) {
-        this.dynamoDBRepository = dynamoDBRepository;
-        this.redisRepository = redisRepository;
-        this.mapper = mapper;
-    }
 
     public List<BookingEntity> findByShowId(String showId) {
         List<BookingEntity> bookingEntities = dynamoDBRepository.findByShowId(showId);
@@ -46,25 +37,12 @@ public class BookingRepository {
     public String save(Allocation allocation) {
         if (allocation instanceof Blocked)
             redisRepository.save((Blocked) allocation);
-        else if (allocation instanceof Booked)
-            dynamoDBRepository.save(allocation);
-        else
+        else {
+            if (allocation instanceof Booked)
+                dynamoDBRepository.save(allocation);
             redisRepository.delete(allocation);
+        }
 
         return allocation.getAllocationId();
     }
-
-//    public void book(String userId, String showId, List<String> seats, List<BookingEntity> bookingEntities) {
-//        unblock("", showId, seats);
-//        List<BookingEntity> updatedEntities = bookingEntities
-//                .stream()
-//                .filter(eachEntity -> seats.contains(eachEntity.getSortKey()))
-//                .map(eachEntity -> {
-//                    eachEntity.setUserId(userId);
-//                    eachEntity.setOccupancy(BOOKED.name());
-//                    return eachEntity;
-//                })
-//                .collect(toList());
-//        dynamoDBMapper.batchSave(updatedEntities);
-//    }
 }

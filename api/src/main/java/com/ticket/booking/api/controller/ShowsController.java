@@ -46,6 +46,14 @@ public class ShowsController {
                 .build();
     }
 
+    @PutMapping("allocation/{allocationId}/book")
+    public ResponseEntity<Void> book(@PathVariable("allocationId") String allocationId,
+                                     @RequestHeader String userId) {
+        showsService.domainBookSeats(allocationId, userId);
+        return ResponseEntity.noContent()
+                .build();
+    }
+
 
 //    @PutMapping("show/{showId}/book")
 //    public ResponseEntity<Void> book(@PathVariable("showId") String showId,

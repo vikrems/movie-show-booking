@@ -57,7 +57,7 @@ public class RedisRepository {
         for (BookingEntity bookingEntity : bookingEntities) {
             String userId = redisTemplate.opsForValue().get(keyPrefix + bookingEntity.getSortKey());
             if (nonNull(userId))
-                bookingEntity.updateDetails(userId, BLOCKED.name());
+                bookingEntity.updateDetails(userId, BLOCKED);
         }
     }
 

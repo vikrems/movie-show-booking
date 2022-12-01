@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.ticket.booking.domain.entity.enums.Occupancy.*;
 import static java.util.Objects.isNull;
@@ -47,7 +46,7 @@ public class ShowsService {
         List<SeatDto> seatDtos = bookingEntities
                 .stream()
                 .map(bookingEntity -> new SeatDto(bookingEntity.getSortKey(),
-                        Occupancy.valueOf(bookingEntity.getOccupancy())))
+                        bookingEntity.getOccupancy()))
                 .collect(toList());
 
         return new SeatAllocation(seatDtos);
@@ -71,7 +70,8 @@ public class ShowsService {
     public void domainBookSeats(String allocationId, String userId) {
         Allocation allocation = bookingRepository.findByAllocationId(allocationId)
                 .orElseThrow(ResourceNotFoundException::new);
-        allocation.forwardTransition(userId);
+        Allocation forwardAllocation = allocation.forwardTransition(userId);
+        bookingRepository.save(forwardAllocation);
     }
 
 
@@ -81,8 +81,8 @@ public class ShowsService {
         return requestedSeats.stream()
                 .map(idToEntity::get)
                 .map(bookingEntity -> new Seat(bookingEntity.getSortKey(),
-                        Occupancy.valueOf(bookingEntity.getOccupancy())))
-                .collect(Collectors.toList());
+                        bookingEntity.getOccupancy()))
+                .collect(toList());
     }
 
     private void validateShowAndSeatExistence(String showId, List<String> requestedSeats,
@@ -117,7 +117,7 @@ public class ShowsService {
 
     private void enlistUnavailableSeats(Map<String, BookingEntity> idToEntity, List<String> unavailableSeats,
                                         String eachSeat) {
-        if (Occupancy.valueOf(idToEntity.get(eachSeat).getOccupancy()) != AVAILABLE)
+        if (idToEntity.get(eachSeat).getOccupancy() != AVAILABLE)
             unavailableSeats.add(eachSeat);
     }
 
