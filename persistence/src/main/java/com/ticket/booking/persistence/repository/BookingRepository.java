@@ -20,10 +20,7 @@ public class BookingRepository {
     private final RedisRepository redisRepository;
 
     public List<BookingEntity> findByShowId(String showId) {
-        List<BookingEntity> bookingEntities = dynamoDBRepository.findByShowId(showId);
-        redisRepository.updateEntityDetailsIfBlockedByTheUser(bookingEntities);
-
-        return bookingEntities;
+        return dynamoDBRepository.findByShowId(showId);
     }
 
     public Optional<Allocation> findByAllocationId(String allocationId) {

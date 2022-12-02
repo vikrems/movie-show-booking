@@ -6,8 +6,8 @@ import java.util.List;
 
 public class Available extends Allocation {
 
-    public Available(String allocationId, String showId, List<Seat> seats) {
-        super(allocationId, showId, seats, null);
+    public Available(String allocationId, String showId, List<Seat> seats, String userId) {
+        super(allocationId, showId, seats, userId);
     }
 
     @Override

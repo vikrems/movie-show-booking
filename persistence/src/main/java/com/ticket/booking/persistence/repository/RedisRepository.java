@@ -4,7 +4,6 @@ import com.ticket.booking.domain.entity.Seat;
 import com.ticket.booking.domain.entity.state.Allocation;
 import com.ticket.booking.domain.entity.state.Blocked;
 import com.ticket.booking.exception.ConflictException;
-import com.ticket.booking.persistence.entity.BookingEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.dao.DataAccessException;
@@ -15,7 +14,6 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.ticket.booking.domain.entity.enums.Occupancy.BLOCKED;
@@ -52,33 +50,22 @@ public class RedisRepository {
                 .collect(toList());
     }
 
-    void updateEntityDetailsIfBlockedByTheUser(List<BookingEntity> bookingEntities) {
-        String keyPrefix = bookingEntities.get(0).getPartitionKey() + "_";
-        for (BookingEntity bookingEntity : bookingEntities) {
-            String userId = redisTemplate.opsForValue().get(keyPrefix + bookingEntity.getSortKey());
-            if (nonNull(userId))
-                bookingEntity.updateDetails(userId, BLOCKED);
-        }
-    }
-
-    private List<String> extractRedisKeys(String showId, List<String> seatNumbers) {
-        return seatNumbers.stream()
-                .map(eachSeat -> showId + "_" + eachSeat)
-                .collect(toList());
-    }
-
     void delete(Allocation allocation) {
-        List<String> seats = extractSeatNumbers(allocation.getSeats());
-        List<String> keys = extractRedisKeys(allocation.getShowId(), seats);
+        List<String> keys = extractRedisKeys(allocation);
         redisTemplate.delete(keys);
         redisTemplate.delete(allocation.getAllocationId());
     }
 
-    boolean save(Blocked blockedAllocation) {
-        String showId = blockedAllocation.getShowId();
-        List<String> seatNumbers = extractSeatNumbers(blockedAllocation.getSeats());
-        List<String> keys = extractRedisKeys(showId, seatNumbers);
+    private List<String> extractRedisKeys(Allocation allocation) {
+        return allocation.getSeats().stream()
+                .map(eachSeat -> allocation.getShowId() + "_" + eachSeat.getSeatNumber() +
+                        "_" + allocation.getUserId())
+                .collect(toList());
+    }
 
+    boolean save(Blocked blockedAllocation) {
+        List<String> keys = extractRedisKeys(blockedAllocation);
+        validateKeyPresence(keys);
         List<Object> txResults = redisTemplate.execute(new SessionCallback<>() {
             @SneakyThrows
             public List<Object> execute(RedisOperations operations) throws DataAccessException {
@@ -86,7 +73,6 @@ public class RedisRepository {
                 operations.multi();
                 for (String eachKey : keys) {
                     operations.opsForValue().setIfAbsent(eachKey, "0", EXPIRATION); //We insert this specifically to watch the keys to ensure that they are not modified
-                    operations.opsForValue().increment(eachKey);
                     String value = (String) operations.opsForValue().get(eachKey);
                     if (nonNull(value))
                         throw new ConflictException("One or more seats are not available");
@@ -96,7 +82,6 @@ public class RedisRepository {
                         .collect(joining(","));
                 operations.opsForValue().set(blockedAllocation.getAllocationId(), commaSeparatedKeys);
                 operations.expire(blockedAllocation.getAllocationId(), EXPIRATION);
-                operations.expire(showId, EXPIRATION);
                 // This will contain the results of all operations in the transaction
                 return operations.exec();
             }
@@ -104,10 +89,13 @@ public class RedisRepository {
         return !isEmpty(txResults);
     }
 
-    private List<String> extractSeatNumbers(List<Seat> seats) {
-        return seats
-                .stream()
-                .map(Seat::getSeatNumber)
-                .collect(toList());
+    private void validateKeyPresence(List<String> keys) {
+        List<String> values = redisTemplate.opsForValue().multiGet(keys);
+        if (isNull(values))
+            return;
+        for (String eachValue : values) {
+            if (nonNull(eachValue))
+                throw new ConflictException("You have already blocked one or more seats");
+        }
     }
 }
