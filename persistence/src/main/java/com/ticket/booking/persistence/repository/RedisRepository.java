@@ -79,8 +79,9 @@ public class RedisRepository {
                 operations.watch(keys);
                 operations.multi();
                 for (Seat eachSeat : blockedAllocation.getSeats()) {
-                    operations.opsForValue().setIfAbsent(extractRedisKey(blockedAllocation, eachSeat),
-                            eachSeat.getVersion().toString(), EXPIRATION); //We insert this specifically to watch the keys
+                    String redisKey = extractRedisKey(blockedAllocation, eachSeat);
+                    String version = extractVersion(eachSeat.getVersion());
+                    operations.opsForValue().setIfAbsent(redisKey, version, EXPIRATION); //We insert this specifically to watch the keys
                     // to ensure that they are not modified
                 }
                 keys.add(blockedAllocation.getUserId());
@@ -92,6 +93,13 @@ public class RedisRepository {
             }
         });
         return !isEmpty(txResults);
+    }
+
+    private String extractVersion(Long version) {
+        if(isNull(version))
+            return "1";
+
+        return version.toString();
     }
 
     private void validateKeyPresence(List<String> keys) {
