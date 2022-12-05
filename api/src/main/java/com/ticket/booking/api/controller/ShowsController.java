@@ -49,7 +49,7 @@ public class ShowsController {
     @PutMapping("allocation/{allocationId}/book")
     public ResponseEntity<Void> book(@PathVariable("allocationId") String allocationId,
                                      @RequestHeader String userId) {
-        showsService.domainBookSeats(allocationId, userId);
+        showsService.book(allocationId, userId);
         return ResponseEntity.noContent()
                 .build();
     }

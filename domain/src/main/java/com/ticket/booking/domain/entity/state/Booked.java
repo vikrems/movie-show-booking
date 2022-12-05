@@ -5,6 +5,8 @@ import com.ticket.booking.exception.ConflictException;
 
 import java.util.List;
 
+import static com.ticket.booking.constant.Constant.SEATS_NOT_AVAILABLE;
+
 public class Booked extends Allocation {
 
     public Booked(String allocationId, String showId, List<Seat> seats, String userId) {
@@ -13,11 +15,11 @@ public class Booked extends Allocation {
 
     @Override
     public Allocation forwardTransition(String userId) {
-        throw new ConflictException("The selected seats are not available");
+        throw new ConflictException(SEATS_NOT_AVAILABLE);
     }
 
     @Override
     public Allocation reverseTransition(String userId) {
-        throw new ConflictException("The selected seats are not available");
+        throw new ConflictException(SEATS_NOT_AVAILABLE);
     }
 }

@@ -7,13 +7,19 @@ import lombok.Getter;
 import java.util.List;
 
 @Getter
-@AllArgsConstructor
 public abstract class Allocation {
 
     final String allocationId;
     final String showId;
-    List<Seat> seats;
-    String userId;
+    final List<Seat> seats;
+    final String userId;
+
+    public Allocation(String allocationId, String showId, List<Seat> seats, String userId) {
+        this.allocationId = allocationId;
+        this.showId = showId;
+        this.seats = seats;
+        this.userId = userId;
+    }
 
     public abstract Allocation forwardTransition(String userId);
 

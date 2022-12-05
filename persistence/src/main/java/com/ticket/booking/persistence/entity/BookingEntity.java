@@ -9,7 +9,6 @@ import lombok.Setter;
 
 import java.util.List;
 
-import static com.ticket.booking.domain.entity.enums.Occupancy.BLOCKED;
 import static lombok.AccessLevel.PRIVATE;
 
 @DynamoDBTable(tableName = "test_booking")
@@ -35,6 +34,9 @@ public class BookingEntity {
     @DynamoDBAttribute
     private List<String> allocatedSeats;
 
+    @DynamoDBVersionAttribute
+    private Long version;
+
     private BookingEntity(String partitionKey) {
         this.partitionKey = partitionKey;
     }
@@ -49,6 +51,14 @@ public class BookingEntity {
         this.sortKey = sortKey;
         this.occupancy = occupancy;
         this.userId = userId;
+    }
+
+    private BookingEntity(String partitionKey, String sortKey, Occupancy occupancy, String userId, List<String> allocatedSeats) {
+        this.partitionKey = partitionKey;
+        this.sortKey = sortKey;
+        this.occupancy = occupancy;
+        this.userId = userId;
+        this.allocatedSeats = allocatedSeats;
     }
 
     public static BookingEntity entityWithPartitionKey(String partitionKey) {
@@ -66,9 +76,16 @@ public class BookingEntity {
 
     public static BookingEntity entityWithAllocationIdOccupancyUserIdAllocatedSeats(String allocationId,
                                                                                     Occupancy occupancy, String userId,
-                                                                                    List<String> allocatedSeats){
-        return new BookingEntity(allocationId, allocationId, occupancy, userId, allocatedSeats);
+                                                                                    List<String> allocatedSeats) {
+        return new BookingEntity(allocationId, allocationId, occupancy, userId, allocatedSeats, 1L);
     }
+
+    public static BookingEntity entityWithPartitionKeySortKeyOccupancyUserIdAndVersion(String partitionKey, String sortKey,
+                                                                             Occupancy occupancy, String userId, Long version) {
+        return new BookingEntity(partitionKey, sortKey, occupancy, userId, null, version);
+    }
+
+
     public void updateDetails(String userId, Occupancy occupancy) {
         this.userId = userId;
         this.occupancy = occupancy;

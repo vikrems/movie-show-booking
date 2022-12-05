@@ -15,4 +15,6 @@ public class Seat {
     @Setter
     private Occupancy occupancy;
 
+    private Long version;
+
 }

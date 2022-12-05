@@ -67,7 +67,7 @@ public class ShowsService {
         bookingRepository.save(reversedAllocation);
     }
 
-    public void domainBookSeats(String allocationId, String userId) {
+    public void book(String allocationId, String userId) {
         Allocation allocation = bookingRepository.findByAllocationId(allocationId)
                 .orElseThrow(ResourceNotFoundException::new);
         Allocation forwardAllocation = allocation.forwardTransition(userId);
@@ -81,7 +81,7 @@ public class ShowsService {
         return requestedSeats.stream()
                 .map(idToEntity::get)
                 .map(bookingEntity -> new Seat(bookingEntity.getSortKey(),
-                        bookingEntity.getOccupancy()))
+                        bookingEntity.getOccupancy(), bookingEntity.getVersion()))
                 .collect(toList());
     }
 
