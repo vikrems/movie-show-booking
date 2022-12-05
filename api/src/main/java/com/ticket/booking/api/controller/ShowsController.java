@@ -27,7 +27,7 @@ public class ShowsController {
         return ResponseEntity.ok(showsService.listAllSeats(showId));
     }
 
-    @PutMapping("show/{showId}/block")
+    @PostMapping("show/{showId}/block")
     public ResponseEntity<Void> blockSeats(@PathVariable("showId") String showId,
                                            @RequestHeader String userId,
                                            @RequestBody Reservation reservation) {
